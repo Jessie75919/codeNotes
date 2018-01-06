@@ -1,4 +1,4 @@
-#Database
+# Database
 
 ## [Raw DB Query]
 
@@ -44,9 +44,9 @@ Route::get('/delete',function() {
 
 ```
 
-##[Eloquent]
+## [Eloquent]
 
-####Model
+#### Model
 
 ```php
 php artisan make:model Post   -m
