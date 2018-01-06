@@ -6,6 +6,7 @@ var animanls = [
 ];
 
 var aniamlName = animanls.map((animanl) => animanl.name);
+
 // var aniamlName = animanls.map(function (animal) {
 //     return animal.name + " = " + animal.specis;
 // });
