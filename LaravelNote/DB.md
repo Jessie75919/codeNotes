@@ -201,6 +201,7 @@ Route::get('/justDelete2', function () {
 ```
 
 ## 使用軟刪除（Soft Delete）
+軟刪除是表面上已經是刪除狀態，但是他還並未真正的從資料庫移除，他會在設定為軟刪除紀錄的欄位 `deleted_at` 增加一筆時間戳記。
 
 #### 1. 使用migration新增對Post表格新增一個deleted_at的欄位
 新增`add_deleted_at_column_to_posts_tables `的migration
@@ -258,6 +259,46 @@ Route::get('/softdelete',function(){
 });
 ```
 >> 會發現DB內的deleted_at內時間出現了(預設是null)
+
+### [static] 取得被軟刪除的檔案 
+* withTrashed() / onlyTrashed() 
+
+```php
+Route::get('/readSoftDelete',function(){
+                                  // 針對某一筆被軟刪除的資料
+		$delPost = Post::withTrashed()->where('id',2)->get();
+		$delPost = Post::onlyTrashed()->where('id',2)->get();
+		
+		                // 取得所有被軟刪除的資料
+		$delPost = Post::onlyTrashed()->get();
+		
+		return $delPost;
+});
+
+```
+
+### 恢復資料到尚未軟刪除的狀態
+* restore()
+
+```php
+Route::get('/restore',function(){
+             // 找到被軟刪除的某筆資料              // 恢復
+		Post::withTrashed()->where('user_id',1)->restore();
+});
+```
+
+### 強制刪除某筆資料
+* forceDelete()
+
+```php
+Route::get('/forceDelete',function(){
+            // 找到被軟刪除的某筆資料         // 強制刪除
+	    Post::withTrashed()->where('id',7)->forceDelete();
+	});
+```
+
+
+
 
 
 
