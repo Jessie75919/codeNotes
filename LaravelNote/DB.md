@@ -475,10 +475,12 @@ class Post extends Model
     `Route.php`
     
     ```php
-// HAS MANY THROUGH
-	Route::get('/country/{id}/posts',function($id){
-		return Country::find($id)->posts;
-	});
+    
+        // HAS MANY THROUGH
+    	Route::get('/country/{id}/posts',function($id){
+    		return Country::find($id)->posts;
+    	});
+    	
     ```
 
 
