@@ -297,6 +297,192 @@ Route::get('/forceDelete',function(){
 	});
 ```
 
+# Eloquent Relationship
+> ## 一個 `User(主)` 對應 一個 `Post(從)`
+
+### 設定一對一的關係：(主 User) hasOne()
+
+* hasOne(related Model, foreignKey , localKey)
+    * 要定義跟`從`關係的Model
+    * 外鍵（預設不用寫）
+    * 對應其他表格外鍵的本地鍵 （預設不用寫）
+
+```php
+class User extends Authenticatable
+{
+	public function post()
+	{
+		// defind the one to one relationship
+		// hasOne(related Model, foreignKey , localKey  )
+		return $this->hasOne('App\Post');
+	}
+}
+```
+### 設定一對一的關係：(從 Post) belongsTo()
+
+* belongsTo(related Model)
+    * 要定義跟`主`關係的Model
+
+```php
+class Post extends Model
+{
+	public function user()
+	{
+		return $this->belongsTo('App\User');
+	}
+}
+```
+
+> ## 一個 `User(主)` 對應 多個 `Post(從)`
+
+### 設定一對多的關係：(主 User) hasMany()
+
+* hasMany(related Model)
+    * 要定義跟`從`關係的Model
+
+
+`User.php`
+
+```php
+class User extends Authenticatable
+{
+	public function posts()
+	{
+		return $this->hasMany(Post::class);
+	}
+}
+```
+`Post.php`
+
+```php
+class Post extends Model
+{
+	public function user()
+	{
+		return $this->belongsTo('App\User');
+	}
+}
+```
+
+`route.php`
+
+```php
+// ONT TO MANY
+	Route::get('/posts/all',function(){
+		return User::find(1)->posts;
+	});
+
+```
+
+> ## 多個 `User`  對應 多個 `Role`
+要先設定一張 `pivot table` 來儲存兩者之間的關係 
+
+1. 先創建一個Role的migration
+    * 設定好裡面的欄位然後 migrate 它
+2. 創建一個Pivot的migration
+    
+    ```php
+    php artisan make:migration create_users_roles_table --create=role_user
+    ```
+    * `create` ＝ 兩個Model的名稱(依照字母順序排列)  
+3. 設定pivot migration內的內容
+
+    ```php
+    public function up()
+    {
+        Schema::create('role_user', function (Blueprint $table) {
+            $table->increments('id');
+	        $table->integer('user_id');
+	        $table->integer('role_id');
+            $table->timestamps();
+        });
+    }
+    
+    ```
+    
+    ```php
+        php artisan migrate 
+    ```
+4. 填入資料庫相對應的資料     
+5. 在 `User` & `Role` 設定 多對多的關係 **belongsToMany()**
+
+    `User.php`
+
+    ```php
+    class User extends Authenticatable
+    {
+        public function roles()
+    	{
+    		return $this->belongsToMany(Role::class);
+    	}
+    }
+    
+    ```
+    
+    `Role.php`
+
+    ```php
+    class Role extends Model
+    {
+    	public function user()
+    	{
+        // 如果沒有依據他預設的命名規則就必須自己定義
+        //                                   (pivot table)   (userID)    (roleID)
+    	  // $this->belongsToMany(Role::class, 'user_roles', 'user_id', 'role_id');
+    		return $this->belongsToMany(User::class);
+        }
+    }
+        
+    ```
+6. Route
+
+    ```php
+        // MANY TO MANY
+    	Route::get('/user/{id}/role',function($id){
+    	    return User::find($id)->roles;
+    	});
+    
+    ```
+    
+# 遠距離關係 hasManyThrough()
+
+關係如下
+
+```php
+    Post --> User <-- Country
+```
+#### 情境
+今天想要選取某一個國家的所有文章，但是在`Post`與`Country`之間並沒有真正的關連，必須要藉由`User`搭建連結。
+
+1. 創建 `Country` 表格( by migrate )＆ Model, 設定 `name` 欄位
+2. 在 ` Country ` 中設置
+
+    `Country.php`
+    
+    ```php
+    class Country extends Model
+    {
+    	public function posts()
+    	{
+    		return $this
+    		                               // 橋樑model   // 橋樑model跟country關係的外鍵
+    			->hasManyThrough(Post::class,User::class,'country_id');
+    			             //要建立關係的model
+        }
+    }
+    ```
+    
+    `Route.php`
+    
+    ```php
+// HAS MANY THROUGH
+	Route::get('/country/{id}/posts',function($id){
+		return Country::find($id)->posts;
+	});
+    ```
+
+
+
 
 
 
