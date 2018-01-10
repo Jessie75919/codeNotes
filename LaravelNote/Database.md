@@ -375,6 +375,14 @@ class Post extends Model
 ```
 
 > ## 多個 `User`  對應 多個 `Role`
+
+```
+    UserId 1 --->   -----------   <---- RoleId 1
+    UserId 2 --->  | role_user |  <---- RoleId 2
+    UserId 3 --->   -----------   <---- RoleId 3
+      ...                                ...
+``` 
+
 要先設定一張 `pivot table` 來儲存兩者之間的關係 
 
 1. 先創建一個Role的migration
@@ -392,8 +400,8 @@ class Post extends Model
     {
         Schema::create('role_user', function (Blueprint $table) {
             $table->increments('id');
-	        $table->integer('user_id');
-	        $table->integer('role_id');
+	        $table->integer('user_id'); // User表格的id
+	        $table->integer('role_id'); // Role表格的id
             $table->timestamps();
         });
     }
@@ -482,7 +490,244 @@ class Post extends Model
     	});
     	
     ```
+    
+# 多樣關係(Polymorphic Relations)
 
+關係如下
+
+```php
+    Post --> |--------| 
+             | Photo  |
+    User --> |________|
+```
+
+
+#### 情境
+在 `Post` 文章 與 `User` 使用者中都會使用到 `Photo` 這個表格
+
+1. 先用migration 產生 `Photo` 的表格，設置如下：
+
+```php
+class CreatePhotosTable extends Migration
+{
+   
+    public function up()
+    {
+        Schema::create('photos', function (Blueprint $table) {
+            $table->increments('id');
+	        $table->string('path');
+	        $table->integer('imageable_id');
+	        $table->string('imageable_type');
+            $table->timestamps();
+        });
+    }
+}
+```
+
+> 重點在於 `imageable_id` 與 `imageable_type` 的欄位
+>> `imageable_id` 存放 `Post` 與 `User` 表格的 `id`
+>> `imageable_type` 存放 `Post` 與 `User` 表格的 `Model Type`
+
+`Photo.php`
+
+```php
+class Photo extends Model
+{
+    // 經過測試，有沒有這個方法都能運作
+	public function imageable()
+	{
+		return $this->morphTo();
+    }
+}
+``` 
+
+`User.php`
+
+```php
+class User extends Model
+{
+	public function photos()
+	{
+	                                       // 要符合與Photo表格的 'imageable' + '_id' 欄位內，'_id' 之前的命名
+	                                       // 如果這個參數寫'xx'，到時候 他就會去Photo表格找 'xx_id' 的欄位
+		return $this->morphMany('App\Photo', 'imageable');
+	}
+}
+``` 
+
+`Post.php`
+
+```php
+class User extends Model
+{
+	public function photos()
+	{
+	                                       // 如上
+		return $this->morphMany('App\Photo', 'imageable');
+	}
+}
+``` 
+
+# Many To Many Polymorphic Relations
+
+`Post` ＆ `Video` 共享對 `Tag` 的多樣關係
+
+- 產生一個Tag的 Model & Migration
+- 產生一個Taggable的 Model & Migration 
+    - 用來記錄 Tag 與 (Post / Video) 之間的對照關係
+
+`Taggable Migration` 設定 `Taggable ` 表格
+
+```php
+class CreateTaggablesTable extends Migration
+{
+    public function up()
+    {
+        Schema::create('taggables', function (Blueprint $table) {
+            $table->integer('tag_id');    // Tag表格id的欄位
+            $table->integer('taggable_id');  // Post or Video Id的欄位
+            $table->string('taggable_type'); // Post or Video Id的型態
+
+        });
+    }
+}
+
+```
+
+`Tag Migration` 設定 `Tag` 表格
+
+```php
+class CreateTagsTable extends Migration
+{
+    public function up()
+    {
+        Schema::create('tags', function (Blueprint $table) {
+            $table->increments('id');
+	        $table->string('name');
+            $table->timestamps();
+        });
+    }
+}
+```
+
+`Tag.php` => **morphedByMany()**
+
+```php
+class Tag extends Model
+{
+	public function posts()
+	{
+		return $this->morphedByMany('App\Post','taggable');
+		              // 定義跟Post的關係
+    }
+
+	public function videos()
+	{
+		return $this->morphedByMany('App\Video','taggable');
+		              // 定義與Video的關係
+	}
+}
+
+```
+
+`Post.php` => **morphToMany()**
+
+```php
+class Post extends Model
+{
+    public function tags()
+    	{
+    		return $this->morphToMany(Tag::class, 'taggable');
+    	}
+}
+```
+
+`video.php` => **morphToMany()**
+
+```php
+class Video extends Model
+{
+    public function tags()
+    	{
+    		return $this->morphToMany(Tag::class, 'taggable');
+    	}
+}
+```
+
+## Access Data
+
+`route.php`
+
+察看 Post or Video id = 1 的這篇資料有哪幾個標籤 ex: Work \ Javascript ... 
+
+```php
+// Polymorphic Many to Many
+	Route::get('/getTagFromSthId/{type}/{id}', function ($type, $id) {
+
+			if ($type === 'video'){
+				$photoData = Video::find($id);
+				return $photoData->tags;
+			}
+			else if ($type === 'post'){
+				$photoData = Post::find($id);
+				return $photoData->tags;
+			}
+
+	});
+
+```
+
+察看有哪些東西是標住在 Tag id = 1 的這個標籤底下 ex: Post 1 , Post 4 , Video 3...
+
+```php
+Route::get('/getSthFromTagId/{type}/{id}', function ($type, $id) {
+			$photoData = Tag::findOrFail($id);
+			if ($type === 'post')
+				return $photoData->posts;
+			elseif ($type === 'video')
+				return $photoData->videos;
+	});
+```
+
+
+## Insert Data
+再寫入一筆Post資料的同時也寫進去Taggable內，紀錄這比Post有標記哪幾個標籤
+
+```php
+Route::get('/createPostVideo',function(){
+		$faker = \Faker\Factory::create('zh_TW');
+		$post = Post::create([
+			'title'=> 'hihi',
+			'body' => $faker->sentence(),
+			'user_id'=> 4
+		]);
+		
+		
+		// 找到ID = 1 的 Tag
+		$tag1 = Tag::find(1);
+		
+		// 寫入Taggable 表格內
+		$post->tags()->save($tag1);
+		
+		// 在這偏Post文章新增加這個標籤 attach()
+		$post->tags()->attach($tag1)
+		
+		// 只保留這篇Post文章的標籤Id = 1 的標籤，移除其他的非Id = 1的標籤
+		$post->tags()->sync([1]);
+		
+		});
+```
+
+## Delete Data
+
+
+```php
+Route::get('/deletePoly',function(){
+		$post = Post::find(1);
+		return $post->tags()->whereId(2)->delete();
+	});
+
+```
 
 
 
