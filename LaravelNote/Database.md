@@ -456,7 +456,7 @@ class Post extends Model
 
 關係如下
 
-```php
+```
     Post --> User <-- Country
 ```
 #### 情境
@@ -495,7 +495,7 @@ class Post extends Model
 
 關係如下
 
-```php
+```
     Post --> |--------| 
              | Photo  |
     User --> |________|
@@ -702,7 +702,6 @@ Route::get('/createPostVideo',function(){
 			'user_id'=> 4
 		]);
 		
-		
 		// 找到ID = 1 的 Tag
 		$tag1 = Tag::find(1);
 		
@@ -728,6 +727,7 @@ Route::get('/deletePoly',function(){
 	});
 
 ```
+
 
 
 
